@@ -8,11 +8,14 @@ import com.privatevoicedocs.domain.model.DeleteDocumentResult
 import com.privatevoicedocs.domain.model.Document
 import com.privatevoicedocs.domain.model.ImportDocumentResult
 import com.privatevoicedocs.domain.repository.DocumentRepository
+import kotlinx.coroutines.CancellationException
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class OfflineDocumentRepository(
     private val localDataSource: DocumentLocalDataSource,
@@ -44,17 +47,25 @@ class OfflineDocumentRepository(
         val stored = try {
             storage.copy(sourceUri, documentId, mimeType!!)
         } catch (error: Throwable) {
-            storage.delete(documentId)
+            cleanupCopy(documentId)
+            if (error is CancellationException) throw error
             return@withLock ImportDocumentResult.Failure(error.userMessage("The private file copy failed"))
         }
         if (stored.sizeBytes == 0L) {
-            storage.delete(documentId)
+            cleanupCopy(documentId)
             return@withLock ImportDocumentResult.Failure("The selected file is empty.")
         }
 
-        localDataSource.findByHash(stored.sha256)?.let { existing ->
-            storage.delete(documentId)
-            return@withLock ImportDocumentResult.Duplicate(existing.id, existing.displayName)
+        val existing = try {
+            localDataSource.findByHash(stored.sha256)
+        } catch (error: Throwable) {
+            cleanupCopy(documentId)
+            if (error is CancellationException) throw error
+            return@withLock ImportDocumentResult.Failure(error.userMessage("Unable to check for duplicates"))
+        }
+        existing?.let {
+            cleanupCopy(documentId)
+            return@withLock ImportDocumentResult.Duplicate(it.id, it.displayName)
         }
 
         val now = clock()
@@ -77,7 +88,7 @@ class OfflineDocumentRepository(
         try {
             localDataSource.insert(entity)
         } catch (duplicate: DuplicateDocumentHashException) {
-            storage.delete(documentId)
+            cleanupCopy(documentId)
             val existing = localDataSource.findByHash(stored.sha256)
             return@withLock if (existing != null) {
                 ImportDocumentResult.Duplicate(existing.id, existing.displayName)
@@ -85,7 +96,8 @@ class OfflineDocumentRepository(
                 ImportDocumentResult.Failure("A duplicate document was detected.")
             }
         } catch (error: Throwable) {
-            storage.delete(documentId)
+            cleanupCopy(documentId)
+            if (error is CancellationException) throw error
             return@withLock ImportDocumentResult.Failure(error.userMessage("Unable to save document metadata"))
         }
 
@@ -93,18 +105,27 @@ class OfflineDocumentRepository(
     }
 
     override suspend fun deleteDocument(id: String): DeleteDocumentResult {
-        val entity = localDataSource.findById(id) ?: return DeleteDocumentResult.NotFound
+        val entity = try {
+            localDataSource.findById(id)
+        } catch (error: Throwable) {
+            return DeleteDocumentResult.Failure(error.userMessage("Unable to read document metadata"))
+        } ?: return DeleteDocumentResult.NotFound
         val deleting = entity.copy(
             processingStatus = ProcessingStatus.DELETING,
             processingError = null,
             updatedAt = clock(),
         )
-        localDataSource.update(deleting)
+        try {
+            localDataSource.update(deleting)
+        } catch (error: Throwable) {
+            return DeleteDocumentResult.Failure(error.userMessage("Unable to start database cleanup"))
+        }
         return finishDeletion(deleting)
     }
 
-    override suspend fun reconcile() {
+    override suspend fun reconcile() = importMutex.withLock {
         storage.cleanupStaging()
+        storage.cleanupOrphans(localDataSource.allIds().toSet())
         localDataSource.findDeleting().forEach { finishDeletion(it) }
     }
 
@@ -130,6 +151,10 @@ class OfflineDocumentRepository(
         } catch (error: Throwable) {
             DeleteDocumentResult.Failure(error.userMessage("Database cleanup failed; deletion will be retried"))
         }
+    }
+
+    private suspend fun cleanupCopy(documentId: String): Boolean = withContext(NonCancellable) {
+        runCatching { storage.delete(documentId) }.getOrDefault(false)
     }
 }
 

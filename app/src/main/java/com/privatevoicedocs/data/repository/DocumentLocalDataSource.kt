@@ -13,6 +13,7 @@ interface DocumentLocalDataSource {
     suspend fun findById(id: String): DocumentEntity?
     suspend fun findByHash(hash: String): DocumentEntity?
     suspend fun findDeleting(): List<DocumentEntity>
+    suspend fun allIds(): List<String>
     suspend fun insert(document: DocumentEntity)
     suspend fun update(document: DocumentEntity)
     suspend fun deleteById(id: String)
@@ -23,6 +24,7 @@ class RoomDocumentLocalDataSource(private val dao: DocumentDao) : DocumentLocalD
     override suspend fun findById(id: String): DocumentEntity? = dao.findById(id)
     override suspend fun findByHash(hash: String): DocumentEntity? = dao.findByHash(hash)
     override suspend fun findDeleting(): List<DocumentEntity> = dao.findByStatus(ProcessingStatus.DELETING)
+    override suspend fun allIds(): List<String> = dao.allIds()
 
     override suspend fun insert(document: DocumentEntity) {
         try {

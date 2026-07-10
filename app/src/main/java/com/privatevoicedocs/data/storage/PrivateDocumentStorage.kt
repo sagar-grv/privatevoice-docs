@@ -17,4 +17,5 @@ interface PrivateDocumentStorage {
     suspend fun copy(sourceUri: String, documentId: String, mimeType: String): StoredDocument
     suspend fun delete(documentId: String): Boolean
     suspend fun cleanupStaging()
+    suspend fun cleanupOrphans(knownDocumentIds: Set<String>)
 }

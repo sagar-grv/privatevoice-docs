@@ -1,6 +1,7 @@
 package com.privatevoicedocs.data.database
 
 import android.content.Context
+import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -89,4 +90,32 @@ class AppDatabaseTest {
         assertEquals(0, database.pageDao().countForDocument("document-1"))
         assertEquals(0, database.chunkDao().countForDocument("document-1"))
     }
+
+    @Test
+    fun duplicateFileHashIsRejectedByUniqueIndex() = runTest {
+        database.documentDao().insert(testDocument("document-1", "same-hash"))
+
+        try {
+            database.documentDao().insert(testDocument("document-2", "same-hash"))
+            org.junit.Assert.fail("Expected unique file hash constraint")
+        } catch (_: SQLiteConstraintException) {
+            assertEquals(1, database.documentDao().observeAll().first().size)
+        }
+    }
 }
+
+private fun testDocument(id: String, hash: String) = DocumentEntity(
+    id = id,
+    displayName = "$id.pdf",
+    originalUri = "content://fixture/$id",
+    localFilePath = "/private/$id/source.pdf",
+    fileHash = hash,
+    mimeType = "application/pdf",
+    fileSize = 10,
+    pageCount = null,
+    processingStatus = ProcessingStatus.IMPORTED,
+    processingProgress = 0,
+    processingError = null,
+    createdAt = 1,
+    updatedAt = 1,
+)

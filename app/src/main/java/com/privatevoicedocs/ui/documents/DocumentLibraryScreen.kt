@@ -81,6 +81,11 @@ fun DocumentLibraryScreen(viewModel: DocumentLibraryViewModel) {
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                if (uiState.importOutcomes.isNotEmpty()) {
+                    item(key = "import-outcomes") {
+                        ImportOutcomeCard(uiState.importOutcomes)
+                    }
+                }
                 items(uiState.documents, key = Document::id) { document ->
                     DocumentCard(document, onDelete = { pendingDelete = document })
                 }
@@ -101,6 +106,22 @@ fun DocumentLibraryScreen(viewModel: DocumentLibraryViewModel) {
             },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+private fun ImportOutcomeCard(outcomes: List<ImportOutcome>) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Latest import", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            outcomes.forEach { outcome ->
+                Text(
+                    "${outcome.label}: ${outcome.detail}",
+                    color = if (outcome.succeeded) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
     }
 }
 

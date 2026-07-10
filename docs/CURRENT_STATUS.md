@@ -10,7 +10,7 @@ Updated: 2026-07-10
 - SAF multi-document picker for PDF/JPEG/PNG
 - App-private staged copies, SHA-256, duplicate detection, and Room listing
 - Confirmed, retryable document deletion with page/chunk cascades
-- Startup staging/deletion reconciliation
+- Startup staging/orphan/deletion reconciliation
 - Backup/device-transfer exclusions and no internet permission
 - Unit and Room instrumentation test sources
 
@@ -23,7 +23,7 @@ Updated: 2026-07-10
 
 ## Verification evidence
 
-- `testDebugUnitTest`: 9 tests, 0 failures, 0 errors, 0 skipped
+- `testDebugUnitTest`: 10 tests, 0 failures, 0 errors, 0 skipped
 - `compileDebugAndroidTestSources`: successful
 - `assembleDebug`: successful
 - `lintDebug`: no issues found

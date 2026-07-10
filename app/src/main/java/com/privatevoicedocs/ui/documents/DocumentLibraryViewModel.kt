@@ -18,11 +18,20 @@ data class DocumentLibraryUiState(
     val isLoading: Boolean = true,
     val isImporting: Boolean = false,
     val feedback: String? = null,
+    val importOutcomes: List<ImportOutcome> = emptyList(),
+)
+
+data class ImportOutcome(
+    val sourceUri: String,
+    val label: String,
+    val detail: String,
+    val succeeded: Boolean,
 )
 
 private data class DocumentActionState(
     val isImporting: Boolean = false,
     val feedback: String? = null,
+    val importOutcomes: List<ImportOutcome> = emptyList(),
 )
 
 class DocumentLibraryViewModel(
@@ -39,6 +48,7 @@ class DocumentLibraryViewModel(
             isLoading = false,
             isImporting = action.isImporting,
             feedback = action.feedback,
+            importOutcomes = action.importOutcomes,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -53,15 +63,26 @@ class DocumentLibraryViewModel(
             var imported = 0
             var duplicates = 0
             var failed = 0
+            val outcomes = mutableListOf<ImportOutcome>()
             sourceUris.forEach { sourceUri ->
-                when (repository.importDocument(sourceUri)) {
-                    is ImportDocumentResult.Success -> imported++
-                    is ImportDocumentResult.Duplicate -> duplicates++
-                    is ImportDocumentResult.Failure -> failed++
+                when (val result = repository.importDocument(sourceUri)) {
+                    is ImportDocumentResult.Success -> {
+                        imported++
+                        outcomes += ImportOutcome(sourceUri, result.document.displayName, "Imported", succeeded = true)
+                    }
+                    is ImportDocumentResult.Duplicate -> {
+                        duplicates++
+                        outcomes += ImportOutcome(sourceUri, result.displayName, "Duplicate of an existing document", succeeded = false)
+                    }
+                    is ImportDocumentResult.Failure -> {
+                        failed++
+                        outcomes += ImportOutcome(sourceUri, sourceUri.substringAfterLast('/'), result.message, succeeded = false)
+                    }
                 }
             }
             actionState.value = DocumentActionState(
                 feedback = "Imported $imported · Duplicates $duplicates · Failed $failed",
+                importOutcomes = outcomes,
             )
         }
     }

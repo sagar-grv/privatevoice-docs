@@ -22,6 +22,9 @@ interface DocumentDao {
     @Query("SELECT * FROM documents WHERE processingStatus = :status")
     suspend fun findByStatus(status: ProcessingStatus): List<DocumentEntity>
 
+    @Query("SELECT id FROM documents")
+    suspend fun allIds(): List<String>
+
     @Insert
     suspend fun insert(document: DocumentEntity)
 

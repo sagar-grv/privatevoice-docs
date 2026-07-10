@@ -8,6 +8,7 @@
 - Duplicate-copy cleanup
 - Unsupported type rejection before copy
 - Retryable deletion and startup reconciliation
+- Cleanup of a final private directory orphaned before Room insertion
 - ViewModel document flow and per-item batch outcomes
 - Room schema compilation, unique hash, and document→page/chunk cascade test source
 

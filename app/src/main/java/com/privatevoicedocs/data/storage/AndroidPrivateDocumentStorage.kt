@@ -92,4 +92,11 @@ class AndroidPrivateDocumentStorage(
         stagingRoot.listFiles()?.forEach(File::deleteRecursively)
         Unit
     }
+
+    override suspend fun cleanupOrphans(knownDocumentIds: Set<String>) = withContext(ioDispatcher) {
+        documentsRoot.listFiles()
+            ?.filter { it.isDirectory && it.name !in knownDocumentIds }
+            ?.forEach(File::deleteRecursively)
+        Unit
+    }
 }

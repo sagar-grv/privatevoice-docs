@@ -9,6 +9,7 @@ import com.privatevoicedocs.domain.model.DeleteDocumentResult
 import com.privatevoicedocs.domain.model.ImportDocumentResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -76,6 +77,46 @@ class OfflineDocumentRepositoryTest {
         assertTrue(store.documents.value.isEmpty())
     }
 
+    @Test
+    fun `reconciliation removes final directories that have no database record`() = runTest {
+        val store = FakeDocumentLocalDataSource().apply { insert(existingDocument()) }
+        val storage = FakePrivateDocumentStorage()
+        val repository = repository(store, storage)
+
+        repository.reconcile()
+
+        assertEquals(setOf("existing"), storage.lastKnownDocumentIds)
+    }
+
+    @Test
+    fun `database failure while marking deletion returns a failure without deleting files`() = runTest {
+        val store = FakeDocumentLocalDataSource().apply {
+            insert(existingDocument())
+            failUpdates = true
+        }
+        val storage = FakePrivateDocumentStorage()
+        val repository = repository(store, storage)
+
+        val result = repository.deleteDocument("existing")
+
+        assertTrue(result is DeleteDocumentResult.Failure)
+        assertTrue(storage.deletedDocumentIds.isEmpty())
+    }
+
+    @Test
+    fun `cancelled copy performs cleanup and rethrows cancellation`() = runTest {
+        val store = FakeDocumentLocalDataSource()
+        val storage = FakePrivateDocumentStorage().apply { throwCancellation = true }
+        val repository = repository(store, storage)
+
+        try {
+            repository.importDocument("content://policy")
+            org.junit.Assert.fail("Expected cancellation")
+        } catch (_: CancellationException) {
+            assertEquals(listOf("document-1"), storage.deletedDocumentIds)
+        }
+    }
+
     private fun repository(
         store: FakeDocumentLocalDataSource,
         storage: FakePrivateDocumentStorage,
@@ -105,18 +146,21 @@ class OfflineDocumentRepositoryTest {
 
 private class FakeDocumentLocalDataSource : DocumentLocalDataSource {
     val documents = MutableStateFlow<List<DocumentEntity>>(emptyList())
+    var failUpdates = false
 
     override fun observeAll(): Flow<List<DocumentEntity>> = documents
     override suspend fun findById(id: String): DocumentEntity? = documents.value.find { it.id == id }
     override suspend fun findByHash(hash: String): DocumentEntity? = documents.value.find { it.fileHash == hash }
     override suspend fun findDeleting(): List<DocumentEntity> =
         documents.value.filter { it.processingStatus == ProcessingStatus.DELETING }
+    override suspend fun allIds(): List<String> = documents.value.map(DocumentEntity::id)
 
     override suspend fun insert(document: DocumentEntity) {
         documents.value = documents.value + document
     }
 
     override suspend fun update(document: DocumentEntity) {
+        if (failUpdates) error("database unavailable")
         documents.value = documents.value.map { if (it.id == document.id) document else it }
     }
 
@@ -131,11 +175,14 @@ private class FakePrivateDocumentStorage(
 ) : PrivateDocumentStorage {
     val deletedDocumentIds = mutableListOf<String>()
     var copyCount = 0
+    var lastKnownDocumentIds: Set<String>? = null
+    var throwCancellation = false
 
     override suspend fun inspect(sourceUri: String): SourceMetadata = metadata
 
     override suspend fun copy(sourceUri: String, documentId: String, mimeType: String): StoredDocument {
         copyCount++
+        if (throwCancellation) throw CancellationException("cancelled")
         return StoredDocument("/private/$documentId/source.pdf", "hash-policy", 100)
     }
 
@@ -145,4 +192,7 @@ private class FakePrivateDocumentStorage(
     }
 
     override suspend fun cleanupStaging() = Unit
+    override suspend fun cleanupOrphans(knownDocumentIds: Set<String>) {
+        lastKnownDocumentIds = knownDocumentIds
+    }
 }

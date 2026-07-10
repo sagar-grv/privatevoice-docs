@@ -28,7 +28,7 @@ Imports are serialized. A Room unique index on `fileHash` is the final race guar
 
 ## Deletion state
 
-Records are marked `DELETING` before file cleanup. A failed cleanup remains visible and retryable. Startup reconciliation clears abandoned staging directories and retries deleting records. Operations are idempotent.
+Records are marked `DELETING` before file cleanup. A failed cleanup remains visible and retryable. Startup reconciliation is serialized with imports, clears abandoned staging directories, removes final directories that have no Room record, and retries deleting records. Operations are idempotent.
 
 ## Deferred boundaries
 

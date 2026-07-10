@@ -31,6 +31,8 @@ class DocumentLibraryViewModelTest {
 
         assertEquals(listOf("Existing.pdf"), viewModel.uiState.value.documents.map { it.displayName })
         assertEquals("Imported 1 · Duplicates 1 · Failed 1", viewModel.uiState.value.feedback)
+        assertEquals(3, viewModel.uiState.value.importOutcomes.size)
+        assertEquals("Duplicate of an existing document", viewModel.uiState.value.importOutcomes[1].detail)
         assertFalse(viewModel.uiState.value.isImporting)
     }
 }
