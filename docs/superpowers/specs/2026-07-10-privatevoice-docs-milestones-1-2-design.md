@@ -8,27 +8,29 @@ Build only the native Android foundation and private document import path: onboa
 
 - Kotlin, Jetpack Compose, Material 3, Coroutines, StateFlow, ViewModel, Room, and manual dependency injection.
 - `minSdk 31`, `compileSdk 36`, and `targetSdk 36`.
-- AGP 8.13.2, Gradle 8.13, Kotlin 2.3.21, Compose BOM 2026.06.00, Room 2.8.4.
-- No `INTERNET` permission, cloud SDK, analytics, advertising, or remote fallback.
+- AGP 8.13.2, Gradle 8.13, Kotlin 2.3.21, Compose BOM 2026.06.00, Lifecycle 2.10.0, and Room 2.8.4. Lifecycle 2.11 is intentionally not used because it requires preview API 37/AGP 9.1; the product targets stable Android 16/API 36.
+- No `INTERNET` permission, Android backup/device transfer, cloud SDK, analytics, advertising, or remote fallback. The app never uploads a selected file; the Android system picker may itself expose providers backed by cloud services.
 
 ## Architecture
 
 The dependency direction is `UI → ViewModel → DocumentRepository → Room/private storage`. Compose observes immutable `StateFlow` state. Android URI and file APIs remain behind `PrivateDocumentStorage`; the UI never persists or reopens an external URI as the canonical document source.
 
-Room owns metadata. Foreign-key cascades connect pages and chunks to documents, messages to conversations, and voice recordings to profiles. The schema includes all eight entities requested by the brief so future milestones can add behavior without replacing persistence boundaries.
+Room owns metadata. Foreign-key cascades connect pages and chunks to documents, messages to conversations, and voice recordings to profiles. The brief explicitly requires schema-only foundations for `Document`, `Page`, `Chunk`, `Conversation`, `Message`, `ModelPack`, `VoiceProfile`, and `VoiceRecording` in Milestones 1–2. Only document behavior is activated; later tables have no UI or synthetic AI/voice behavior.
 
 ## Import flow
 
 1. Launch `ActivityResultContracts.OpenMultipleDocuments` for PDF/JPEG/PNG.
 2. Validate MIME type and read display metadata.
-3. Copy into `filesDir/documents/<id>/source.<extension>` while hashing.
+3. Copy into a staging directory while hashing, then atomically promote the completed private copy to `filesDir/documents/<id>/source.<extension>`.
 4. Reject empty files and compare the hash against the unique Room index.
 5. Delete a newly copied duplicate; otherwise insert an `IMPORTED` record.
-6. Clean partial files on every failure path.
+6. Clean partial files on every failure path. Imports are serialized; a unique-index race is still mapped to `Duplicate` and its losing copy is removed. Multi-select returns one outcome per selected item.
+
+At startup, reconciliation removes abandoned staging directories and retries `DELETING` records. Import and deletion recovery are idempotent.
 
 ## Deletion flow
 
-After UI confirmation, mark the record `DELETING`, remove its private directory, then delete its Room row. Page and chunk rows cascade. If file removal fails, restore the prior status and surface the error. Physical overwrite is not guaranteed on flash storage, so deletion is documented as logical removal plus best-effort file cleanup.
+After UI confirmation, mark the record `DELETING`, remove its private directory, then delete its Room row. Page and chunk rows cascade. A failure leaves a visible retryable `DELETING` record and startup reconciliation retries it. “Complete deletion” means verified namespace removal and database cleanup; physical overwrite is not guaranteed on flash storage.
 
 ## UI and accessibility
 
@@ -36,7 +38,7 @@ Onboarding explains that documents stay on-device. Documents, Chat, and Privacy 
 
 ## Testing
 
-Local tests cover MIME policy, hashing, import outcomes, duplicate cleanup, and deletion behavior. Instrumentation tests cover Room insertion, unique hashes, and cascade deletion. Build verification includes unit tests, debug assembly, merged-manifest inspection, and device tests when an emulator/device exists.
+Local tests cover MIME policy, hashing, null/security/I/O failures, import outcomes, duplicate cleanup, cancellation boundaries, and idempotent deletion/reconciliation. Instrumentation tests cover Room insertion, unique hashes, cascades, and the import/list/duplicate/delete path. Build verification includes unit tests, debug assembly, merged-manifest inspection for network/backup rules, and device tests when a configured emulator/device exists.
 
 ## Next milestone
 

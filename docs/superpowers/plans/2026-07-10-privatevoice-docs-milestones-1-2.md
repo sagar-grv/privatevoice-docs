@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a compiling offline-first Android foundation with private PDF/image import, duplicate detection, Room-backed listing, and complete document deletion.
+**Goal:** Build a compiling offline-first Android foundation with private PDF/image import, duplicate detection, Room-backed listing, and verified logical document deletion.
 
 **Architecture:** A single Compose app module uses StateFlow ViewModels over a domain repository. Room stores metadata and Android-private storage owns copied files; AI and voice work remains explicitly unavailable.
 
@@ -16,7 +16,7 @@
 
 - [ ] Configure SDK 36 and stable library versions.
 - [ ] Add the minimum Compose, lifecycle, navigation, Room, coroutine, and test dependencies.
-- [ ] Verify Gradle configuration and keep the manifest free of `INTERNET`.
+- [ ] Disable backup/device transfer, verify Gradle configuration, and keep the manifest free of `INTERNET`.
 
 ### Task 2: Import primitives with TDD
 
@@ -32,17 +32,17 @@
 **Files:** `data/database/entity/*`, `data/database/dao/*`, `AppDatabase.kt`, converters, instrumentation tests.
 
 - [ ] Add tests for document insert/observe, unique hash, and cascade deletion.
-- [ ] Implement the eight requested entities, enums, converters, indexes, and foreign keys.
+- [ ] Implement the eight explicitly requested schema-only entities, enums, converters, indexes, and foreign keys without enabling later AI/voice behavior.
 - [ ] Implement focused DAOs and export schema version 1.
 
 ### Task 4: Storage and repository with TDD
 
 **Files:** domain models/repository, storage boundary/Android adapter, `OfflineDocumentRepository.kt`, unit tests.
 
-- [ ] Add failing tests for success, duplicate cleanup, import failure cleanup, and deletion failure.
+- [ ] Add failing tests for success, batch outcomes, duplicate/race cleanup, null/security/I/O failures, restart reconciliation, and deletion retry.
 - [ ] Implement typed import/delete results and metadata.
-- [ ] Implement private copies with atomic cleanup and hash calculation.
-- [ ] Implement repository coordination and rerun all unit tests.
+- [ ] Implement staged private copies with atomic promotion, hash calculation, and abandoned-stage cleanup.
+- [ ] Serialize imports, map unique races to duplicates, implement idempotent deletion reconciliation, and rerun all unit tests.
 
 ### Task 5: Compose application
 
@@ -61,4 +61,4 @@
 - [ ] Document architecture, privacy boundary, model exclusions, build/test steps, and limitations.
 - [ ] Run `testDebugUnitTest` and `assembleDebug`.
 - [ ] Run device tests when a target exists; otherwise record that limitation exactly.
-- [ ] Inspect the merged manifest for network permissions and report the APK/test outputs.
+- [ ] Inspect the merged manifest for network permission plus backup/device-transfer exclusions and report APK/test outputs.
