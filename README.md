@@ -1,76 +1,74 @@
 # PrivateVoice Docs
 
-PrivateVoice Docs is a native Android application for asking questions about private documents without the app uploading them. The intended complete product imports documents, processes them locally, answers with grounded page citations, and can speak answers using offline voices.
+PrivateVoice Docs is a local-first document intelligence platform for Android, browsers, and laptops. Import private files, retrieve relevant passages on-device, and ask a model you control with visible source excerpts.
 
-## Current implementation status
+## Products
 
-Milestones 1 and 2 are implemented:
+| Client | Status | Privacy boundary |
+|---|---|---|
+| [Web PWA](web/) | Functional PDF/TXT/Markdown import, local index, grounded chat, Ollama/OpenRouter/custom providers | Static app with no project backend; data stays in IndexedDB |
+| [Android](app/) | Native storage, onboarding, Room schema, document import/library, deletion | No `INTERNET` permission; files stay in app-private storage |
 
-- First-run privacy onboarding
-- Material 3 Compose navigation for Documents, Chat, and Privacy
-- PDF/JPG/JPEG/PNG selection through Android Storage Access Framework
-- Staged copy into app-private storage with SHA-256 hashing
-- Content-based duplicate detection
-- Room-backed document library and all eight requested schema foundations
-- Confirmed document deletion with page/chunk cascade and retryable cleanup
-- Backup and device-transfer exclusions
-- No `INTERNET` permission, analytics, advertising, account, or cloud fallback
+The web app is published at **https://sagar-grv.github.io/privatevoice-docs/** after the Pages workflow completes.
 
-PDF extraction, OCR, chunking, embeddings, retrieval, local LLM inference, speech, and personal voice cloning are pending. The Chat screen labels local RAG as unavailable and never generates mock answers.
-
-## Architecture
-
-```text
-Compose UI → StateFlow ViewModels → domain repositories → Room + app-private files
-```
-
-Android URI/file APIs are isolated behind `PrivateDocumentStorage`. Model-dependent capabilities will use separate interfaces in later milestones. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Build
-
-Requirements:
-
-- JDK 17
-- Android SDK Platform 36
-- Android SDK Build Tools 35.0.0 or newer 36.x
+## Web app quick start
 
 ```powershell
-.\gradlew.bat assembleDebug
+cd web
+npm install
+npm run dev
 ```
 
-The debug APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
+Open the displayed local URL. Use **Load a local demo** to test retrieval without adding a private file. Production checks:
 
-## Test
+```powershell
+npm test
+npm run lint
+npm run build
+```
+
+### Model routes
+
+- **Ollama:** free and local. Start Ollama, select a local model, and allow the app origin if your browser requires it. For the hosted site, configure `OLLAMA_ORIGINS=https://sagar-grv.github.io` before starting Ollama. Browser Private Network Access behavior varies; running the PWA from localhost is the reliable fallback.
+- **OpenRouter:** enter your own key. The default `openrouter/free` router selects an available free model; availability and limits belong to OpenRouter.
+- **OpenAI-compatible:** enter an endpoint, model, and key. It works only when that endpoint permits browser CORS requests. Many providers intentionally do not.
+
+Keys are memory-only and disappear on reload. Questions and retrieved excerpts are sent directly to a selected hosted provider; they never pass through a PrivateVoice Docs server.
+
+## Android build and emulator test
+
+Requirements: JDK 17, Android SDK Platform 36, and Build Tools 35+.
 
 ```powershell
 .\gradlew.bat testDebugUnitTest
-.\gradlew.bat compileDebugAndroidTestSources
+.\gradlew.bat assembleDebug
+```
+
+In VS Code, start an API 31+ emulator from Android Studio Device Manager or `emulator`, then run:
+
+```powershell
+adb install -r app\build\outputs\apk\debug\app-debug.apk
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-The final command requires an API 31+ device or emulator. Test planning is in [docs/TESTING_PLAN.md](docs/TESTING_PLAN.md).
+## Web architecture
 
-## Offline guarantees
+```text
+file picker -> local extraction -> local chunks/lexical retrieval -> IndexedDB
+question -> selected excerpts -> Ollama or direct provider -> answer + sources
+```
 
-- The manifest does not request `android.permission.INTERNET`.
-- Imported sources are copied into `filesDir/documents/<id>`.
-- Cloud backup and device transfer exclude app files, databases, and preferences.
-- The Android system file picker may display cloud-backed providers; PrivateVoice Docs itself does not upload a selected file.
+The service worker caches only the static app shell. It does not runtime-cache document content or provider requests. Exported JSON is plaintext and contains document text and conversations; API keys are excluded.
 
-## Model setup
+## Known boundaries
 
-No model pack is bundled or downloaded in these milestones. Large model formats and model directories are ignored by Git. Future integration requirements are documented in [docs/AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md).
+- Browser import accepts PDF, TXT, and Markdown, up to 25 MB per file and 400 PDF pages. Scanned PDFs need OCR, which is not yet in the web client.
+- The Android client currently implements the private document foundation; on-device extraction, RAG, and speech remain later milestones.
+- Hosted-model output can be wrong. Source cards expose the exact local excerpts supplied to the model; they do not automatically prove every generated claim.
+- GitHub Pages is static hosting, so provider/browser CORS and localhost access cannot be fixed by a project backend.
 
-## Known limitations
+See [the privacy model](docs/PRIVACY_MODEL.md), [architecture](docs/ARCHITECTURE.md), [testing plan](docs/TESTING_PLAN.md), and [security policy](SECURITY.md).
 
-- Imported documents remain in `IMPORTED` status; extraction begins in Milestone 3.
-- Image/PDF contents are not yet previewed or searchable.
-- A device/emulator is required to execute Room instrumentation tests and verify installation/navigation.
-- Logical deletion removes database records and the app-private namespace, but flash storage cannot guarantee physical overwrite.
-- The Room database is not yet fully encrypted. Sensitive voice/model artifacts are not created in this milestone; the encryption plan is documented before those features are enabled.
+## License
 
-## Privacy and voice warnings
-
-Do not treat this foundation build as a complete secure document assistant until the remaining privacy hardening and AI milestones are implemented and tested.
-
-Create a personal voice only for yourself or for a person who has given explicit permission. Personal voice inference is not implemented in this build.
+Apache-2.0. Contributions are welcome through [CONTRIBUTING.md](CONTRIBUTING.md).

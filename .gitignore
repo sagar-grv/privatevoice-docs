@@ -16,3 +16,7 @@ generated-audio/
 *.onnx
 *.tflite
 *.task
+web/node_modules/
+web/dist/
+web/coverage/
+*.tsbuildinfo
