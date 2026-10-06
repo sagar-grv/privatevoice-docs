@@ -1,5 +1,7 @@
 # PrivateVoice Docs
 
+A React/TypeScript browser app and Kotlin/Compose Android document-storage project. The two clients have different implementation stages; see the status table below.
+
 PrivateVoice Docs is a local-first document intelligence platform for Android, browsers, and laptops. Import private files, retrieve relevant passages on-device, and ask a model you control with visible source excerpts.
 
 ## Products
@@ -9,13 +11,13 @@ PrivateVoice Docs is a local-first document intelligence platform for Android, b
 | [Web PWA](web/) | Functional PDF/TXT/Markdown import, local index, grounded chat, Ollama/OpenRouter/custom providers | Static app with no project backend; data stays in IndexedDB |
 | [Android](app/) | Native storage, onboarding, Room schema, document import/library, deletion | No `INTERNET` permission; files stay in app-private storage |
 
-The web app is published at **https://sagar-grv.github.io/privatevoice-docs/** after the Pages workflow completes.
+The repository targets GitHub Pages at **https://sagar-grv.github.io/privatevoice-docs/**. Check the current Pages workflow before treating a release as deployed.
 
 ## Web app quick start
 
 ```powershell
 cd web
-npm install
+npm ci
 npm run dev
 ```
 
@@ -68,6 +70,10 @@ The service worker caches only the static app shell. It does not runtime-cache d
 - GitHub Pages is static hosting, so provider/browser CORS and localhost access cannot be fixed by a project backend.
 
 See [the privacy model](docs/PRIVACY_MODEL.md), [architecture](docs/ARCHITECTURE.md), [testing plan](docs/TESTING_PLAN.md), and [security policy](SECURITY.md).
+
+## Screenshots and verification
+
+The images in `docs/design/` are design concepts, not evidence of the running UI. No real product screenshot is claimed here. The commands above are the configured checks; this documentation audit did not rerun Android/emulator or provider-connected tests.
 
 ## License
 
